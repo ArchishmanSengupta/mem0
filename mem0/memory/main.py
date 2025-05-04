@@ -36,7 +36,6 @@ setup_config()
 
 logger = logging.getLogger(__name__)
 
-
 class Memory(MemoryBase):
     def __init__(self, config: MemoryConfig = MemoryConfig()):
         self.config = config
@@ -110,6 +109,7 @@ class Memory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
+        group_id=None,
         metadata=None,
         filters=None,
         infer=True,
@@ -124,6 +124,7 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory. Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            group_id (str, optional): ID of the group chat this memory belongs to. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
@@ -152,9 +153,11 @@ class Memory(MemoryBase):
             filters["agent_id"] = metadata["agent_id"] = agent_id
         if run_id:
             filters["run_id"] = metadata["run_id"] = run_id
+        if group_id:
+            filters["group_id"] = metadata["group_id"] = group_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id", "group_id")):
+            raise ValueError("One of the filters: user_id, agent_id, run_id or group_id is required!")
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -470,7 +473,7 @@ class Memory(MemoryBase):
         ]
         return all_memories
 
-    def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None):
+    def search(self, query, user_id=None, agent_id=None, run_id=None, group_id=None, limit=100, filters=None):
         """
         Search for memories.
 
@@ -479,6 +482,7 @@ class Memory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
+            group_id (str, optional): ID of the group chat to search in. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -492,9 +496,11 @@ class Memory(MemoryBase):
             filters["agent_id"] = agent_id
         if run_id:
             filters["run_id"] = run_id
+        if group_id:
+            filters["group_id"] = group_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id", "group_id")):
+            raise ValueError("One of the filters: user_id, agent_id, run_id or group_id is required!")
 
         capture_event(
             "mem0.search",
@@ -660,7 +666,14 @@ class Memory(MemoryBase):
             ids=[memory_id],
             payloads=[metadata],
         )
-        self.db.add_history(memory_id, None, data, "ADD", created_at=metadata["created_at"])
+        self.db.add_history(
+            memory_id, 
+            None, 
+            data, 
+            "ADD", 
+            created_at=metadata["created_at"],
+            group_id=metadata.get("group_id")
+        )
         capture_event("mem0._create_memory", self, {"memory_id": memory_id, "sync_type": "sync"})
         return memory_id
 
@@ -845,6 +858,7 @@ class AsyncMemory(MemoryBase):
         user_id=None,
         agent_id=None,
         run_id=None,
+        group_id=None,
         metadata=None,
         filters=None,
         infer=True,
@@ -860,6 +874,7 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user creating the memory. Defaults to None.
             agent_id (str, optional): ID of the agent creating the memory. Defaults to None.
             run_id (str, optional): ID of the run creating the memory. Defaults to None.
+            group_id (str, optional): ID of the group chat this memory belongs to. Defaults to None.
             metadata (dict, optional): Metadata to store with the memory. Defaults to None.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
             infer (bool, optional): Whether to infer the memories. Defaults to True.
@@ -887,9 +902,11 @@ class AsyncMemory(MemoryBase):
             filters["agent_id"] = metadata["agent_id"] = agent_id
         if run_id:
             filters["run_id"] = metadata["run_id"] = run_id
+        if group_id:
+            filters["group_id"] = metadata["group_id"] = group_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id", "group_id")):
+            raise ValueError("One of the filters: user_id, agent_id, run_id or group_id is required!")
 
         if memory_type is not None and memory_type != MemoryType.PROCEDURAL.value:
             raise ValueError(
@@ -1218,7 +1235,7 @@ class AsyncMemory(MemoryBase):
         ]
         return all_memories
 
-    async def search(self, query, user_id=None, agent_id=None, run_id=None, limit=100, filters=None):
+    async def search(self, query, user_id=None, agent_id=None, run_id=None, group_id=None, limit=100, filters=None):
         """
         Search for memories asynchronously.
 
@@ -1227,6 +1244,7 @@ class AsyncMemory(MemoryBase):
             user_id (str, optional): ID of the user to search for. Defaults to None.
             agent_id (str, optional): ID of the agent to search for. Defaults to None.
             run_id (str, optional): ID of the run to search for. Defaults to None.
+            group_id (str, optional): ID of the group chat to search in. Defaults to None.
             limit (int, optional): Limit the number of results. Defaults to 100.
             filters (dict, optional): Filters to apply to the search. Defaults to None.
 
@@ -1240,9 +1258,11 @@ class AsyncMemory(MemoryBase):
             filters["agent_id"] = agent_id
         if run_id:
             filters["run_id"] = run_id
+        if group_id:
+            filters["group_id"] = group_id
 
-        if not any(key in filters for key in ("user_id", "agent_id", "run_id")):
-            raise ValueError("One of the filters: user_id, agent_id or run_id is required!")
+        if not any(key in filters for key in ("user_id", "agent_id", "run_id", "group_id")):
+            raise ValueError("One of the filters: user_id, agent_id, run_id or group_id is required!")
 
         capture_event(
             "mem0.search",

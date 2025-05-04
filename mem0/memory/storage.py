@@ -34,10 +34,16 @@ class SQLiteManager:
                         "created_at": "DATETIME",
                         "updated_at": "DATETIME",
                         "is_deleted": "INTEGER",
+                        "group_id": "TEXT"
                     }
 
                     # Check if the schemas are the same
                     if current_schema != expected_schema:
+                        # Check if old_history table exists and drop it if it does
+                        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='old_history'")
+                        if cursor.fetchone():
+                            cursor.execute("DROP TABLE old_history")
+
                         # Rename the old table
                         cursor.execute("ALTER TABLE history RENAME TO old_history")
 
@@ -52,7 +58,8 @@ class SQLiteManager:
                                 event TEXT,
                                 created_at DATETIME,
                                 updated_at DATETIME,
-                                is_deleted INTEGER
+                                is_deleted INTEGER,
+                                group_id TEXT
                             )
                         """
                         )
@@ -60,10 +67,10 @@ class SQLiteManager:
                         # Copy data from the old table to the new table
                         cursor.execute(
                             """
-                            INSERT INTO history (id, memory_id, old_memory, new_memory, new_value, event, created_at, updated_at, is_deleted)
-                            SELECT id, memory_id, prev_value, new_value, new_value, event, timestamp, timestamp, is_deleted
+                            INSERT INTO history (id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted)
+                            SELECT id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted
                             FROM old_history
-                        """  # noqa: E501
+                        """
                         )
 
                         cursor.execute("DROP TABLE old_history")
@@ -84,7 +91,8 @@ class SQLiteManager:
                         event TEXT,
                         created_at DATETIME,
                         updated_at DATETIME,
-                        is_deleted INTEGER
+                        is_deleted INTEGER,
+                        group_id TEXT
                     )
                 """
                 )
@@ -98,13 +106,14 @@ class SQLiteManager:
         created_at=None,
         updated_at=None,
         is_deleted=0,
+        group_id=None,
     ):
         with self._lock:
             with self.connection:
                 self.connection.execute(
                     """
-                    INSERT INTO history (id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO history (id, memory_id, old_memory, new_memory, event, created_at, updated_at, is_deleted, group_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         str(uuid.uuid4()),
@@ -115,6 +124,7 @@ class SQLiteManager:
                         created_at,
                         updated_at,
                         is_deleted,
+                        group_id,
                     ),
                 )
 
